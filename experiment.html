@@ -1,0 +1,703 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Planar Quartic Graph</title>
+    <link href="styleSynth.css" rel="stylesheet" />
+    <link href="menuStyle.css" rel="stylesheet" />
+    <script src='cytoscape.js'></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript" src="MidiConvert.js"></script>
+    
+
+</head>
+<style>
+
+  
+
+#cy {
+        width: 55%;
+        height: 100%;
+        position: absolute;
+        top: 0px;
+        left: 0px;
+    }
+
+    ul {
+  list-style-type: none;
+  text-align: right;
+}
+
+
+</style>
+
+
+<body>
+
+
+<ul></ul>
+
+
+  <div id="FileDrop">
+    <div id="Text">
+      Drop a midi file here
+    </div>
+    <input type="file" accept="audio/midi">
+  </div>
+
+  <div class="btn-group">
+   <button onclick="figure1()" >Figure 1 Derived Rhombic Dodecahedron</button>
+   <button onclick="demo()" >Demo config</button>
+
+   <button onclick="check()" >CHECK</button>
+
+  
+
+
+  <button onclick="animate(finalNotes, 0, 0)" style="float: right;"> animate </button>
+</div> 
+  </div>
+
+  <div class="settingsBar">
+  <div class="left">
+    <span>Volume: </span>
+    <input type="range" min="0.0" max="1.0" step="0.01"
+        value="0.5" list="volumes" name="volume">
+    <datalist id="volumes">
+      <option value="0.0" label="Mute">
+      <option value="1.0" label="100%">
+    </datalist>
+  </div>
+  <div class="right">
+    <span>Current waveform: </span>
+    <select name="waveform">
+      <option value="sine">Sine</option>
+      <option value="square" selected>Square</option>
+      <option value="sawtooth">Sawtooth</option>
+      <option value="triangle">Triangle</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
+  </div>
+
+
+  <script src = 'droppop.js'> </script>
+  <div id="cy"></div>
+  <script src='editedskell.js'></script>
+  <script src='popVer.js'></script>
+  <script src='newParseMidi.js'></script>
+
+<script>
+
+/*necessary because its easier to access the nodes by their ID, but the labels change, 
+so as the nodes get labelled this map gets populated to make that easier to do*/  
+
+var mapOfNotes = new Map();  
+
+
+
+</script>
+
+  <script>
+
+
+
+  /*cy.pan({
+  x: 50,
+  y: 50 
+  });*/
+cy.userPanningEnabled(0);
+
+cy.boxSelectionEnabled( true );
+
+cy.nodes().style({"font-size": 20})
+
+  </script>
+
+  
+
+<script>
+let audioContext = new (window.AudioContext || window.webkitAudioContext);
+let oscList = [];
+let masterGainNode = null;
+let keyboard = document.querySelector(".keyboard");
+let wavePicker = document.querySelector("select[name='waveform']");
+let volumeControl = document.querySelector("input[name='volume']");
+let noteFreq = null;
+let customWaveform = null;
+let sineTerms = null;
+let cosineTerms = null;
+
+
+function createOctaves()
+{
+
+  //let 
+
+  let notefreq = [];
+  var homeTone = 55; //A1 is 55 Hertz
+  var notes = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"];
+    for (let i = 0; i < 9; i++) 
+    {
+      notefreq[i] = [];
+      //notefreq[0]["A"] = 27.500000000000000;
+      console.log("==============CURRENT OCTAVE: " + (i+1) );
+      //popNotes(homeTone, notefreq[i]);
+      for (var j = 0; j < 12; j++)
+      {
+        var currentHalfStep = homeTone * Math.pow(2, j/(12.0));
+        var noteOct = notes[j] + (i+1);
+        //notefreq[i+1][notes[j]] = currentHalfStep;
+        notefreq[noteOct] = currentHalfStep;
+        //console.log(notes[j] + (i+1) + " " + notefreq[i+1][notes[j]]);
+        console.log(noteOct + " " + notefreq[noteOct]);
+      }
+      homeTone *= 2; //every time an octave is finished the frequency is doubled
+    }
+
+    
+    //console.log("TESTING IF THE ARRAY HAS BEEN SUCCESSFULLY EDITED\n" + notefreq[0][0]);
+    return notefreq
+}
+
+function popNotes(frequency, pianoTones)
+{
+
+  
+  var notes = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"];
+  for (var i = 0; i < 12; i++)
+  {
+    var currentHalfStep = frequency * Math.pow(2, i/(12.0));
+    pianoTones[notes[i]] = currentHalfStep;
+    console.log(notes[i] + i + " " + pianoTones[notes[i]]);
+  }
+
+
+}
+
+
+if (!Object.entries) {
+    Object.entries = function entries(O) {
+        return reduce(keys(O), (e, k) => concat(e, typeof k === 'string' && isEnumerable(O, k) ? [[k, O[k]]] : []), []);
+    };
+}
+
+function setup() {
+  noteFreq = createOctaves();
+ 
+  volumeControl.addEventListener("change", changeVolume, false);
+ 
+  masterGainNode = audioContext.createGain();
+  masterGainNode.connect(audioContext.destination);
+  masterGainNode.gain.value = volumeControl.value;
+ 
+ 
+  sineTerms = new Float32Array([0, 0, 1, 0, 1]);
+  cosineTerms = new Float32Array(sineTerms.length);
+  customWaveform = audioContext.createPeriodicWave(cosineTerms, sineTerms);
+ 
+  for (i=0; i<9; i++) {
+      oscList[i] = [];
+  }
+}
+
+setup();
+
+
+
+function playTone(freq) {
+  let osc = audioContext.createOscillator();
+  osc.connect(masterGainNode);
+  
+  console.log("TONE BEING PLAYED " + freq);
+  let type = wavePicker.options[wavePicker.selectedIndex].value;
+ 
+  if (type == "custom") {
+    osc.setPeriodicWave(customWaveform);
+  } else {
+    osc.type = type;
+  }
+
+  osc.frequency.value = freq;
+  osc.start();
+ 
+  //setTimeout(osc.stop(), delay*1000);
+  
+  //osc.stop();
+  return osc;
+}
+
+function changeVolume(event) {
+  masterGainNode.gain.value = volumeControl.value
+}
+
+
+</script>
+
+
+
+<script>
+
+
+//<button onclick="animMidi(finalNotes)" style="float: right;"> animate </button>
+
+cy.on('tap', 'edge', function(evt){
+    var edge = evt.target;
+    console.log('tapped ' + edge.id());
+
+
+});
+
+
+//var iter = 0;
+
+
+function playChord(chord)
+{
+  var notesInChord = chord.length;
+  var osc = [];
+  console.log("==========INSIDE THE PLAY CHORD METHOD================");
+  for (var i = 0; i < notesInChord; i++)
+  {
+    var noteToParse = chord[i].currentNote;
+    console.log(noteToParse + " CURRENT NOTE ");
+    if  (noteToParse.length == 3)
+                {
+                    
+                    //var note = noteToParse.substring(0,2); //only taking the chars not the number: taking the C# from C#4
+                    //var octaveOfNote = noteToParse[2];
+                    //console.log(octaveOfNote);
+                    //console.log("current note frequency " + noteFreq[octaveOfNote][note]);
+                    console.log(noteToParse + " frequency of note " + noteFreq[noteToParse]);
+                    //osc[i] = playTone(noteFreq[octaveOfNote][note]);
+                    osc[i] = playTone(noteFreq[noteToParse]);
+                } 
+
+    else if (noteToParse.length == 2)
+                {
+                    //var note = noteToParse[0];
+                    //var octaveOfNote = noteToParse[1];
+                    //console.log(octaveOfNote);
+                    //console.log("current note frequency " + noteFreq[octaveOfNote][note]);
+                    console.log(noteToParse + " frequency of note " + noteFreq[noteToParse]);
+                    //osc[i] = playTone(noteFreq[octaveOfNote][note]);
+                    osc[i] = playTone(noteFreq[noteToParse]);
+                }
+
+  }
+
+  return osc;
+}
+
+function stopChord(osc)
+{
+  var numberOfNotes = osc.length;
+
+  for (var i = 0; i < numberOfNotes; i++)
+  {
+    osc[i].stop();
+  }
+
+}
+
+function animate(node, iter, osc) 
+    {
+        //var frequencies = createOctaves();
+        /*var numOfChords = node.length;
+        console.log(numOfChords + " number of chords");
+
+        for (var i = 0; i < numOfChords; i++)
+        {
+          console.log("animation active");
+          console.log(noteFreq[2]["A"] + " note frequency");
+          console.log(finalNotes[0]);
+
+          console.log("previous objects should be the same")
+
+          anim(node[i]);
+          var duration = (node[i][0].dur);
+          var oscChord = playChord(node[i]);
+          console.log(node[i] + "current node");
+          setTimeout( function() {deAnim(node[i]);} , (duration * 1000) );
+          stopChord(oscChord);
+        //console.log(frequencies[2][A]);
+        //var duration = (node[iter-1][0].dur)*500 ;
+        
+          console.log(duration + " DURATION ");
+
+
+        }
+
+        setTimeout( function() {animate(node, iter);} , duration );*/
+
+        if (iter == (node.length - 1) )
+        {
+            deAnim(node[iter]);
+            var duration = (node[iter][0].dur)*1000 ; 
+            setTimeout( function() {stopChord(osc);} , duration );
+        }
+
+        if (iter > 0)
+        {
+            deAnim(node[iter-1]);
+            stopChord(osc);
+        }
+
+        //var osc = playTone(440, .04);
+        //osc.stop(audioContext.currentTime + 4);
+        //osc.stop();
+
+        if( (iter < (node.length) ) )
+        {
+            var duration = (node[iter][0].dur)*1000 ; 
+            console.log(duration + " DURATION ");
+            anim(node[iter]);
+            var chord = playChord(node[iter]);
+            iter++;
+            setTimeout( function() {animate(node, iter, chord);} , duration );
+            console.log(node[i]);
+
+        }
+    }
+
+function animMidi(node)
+{
+
+    console.log(finalNotes);
+    console.log(finalNotes[0]);
+
+    var howManyTimes = node.length;
+
+    console.log(node);
+    console.log(node[0]);
+    animate(node, 0);
+    
+}
+
+
+
+cy.on('tap', 'node', function(evt){
+  var node = evt.target;
+  console.log( 'tapped ' + node.id() );
+
+  var nodeARRAY = node.outgoers('edge');
+
+  
+
+  cy.$(node).outgoers().animate(
+    {
+        position: { x: 100, y: 100 }, 
+        style: { lineColor: 'pink' }
+    },
+    {
+        duration: 1,
+        queue: true
+    }
+
+
+
+
+);
+
+cy.$(node).incomers().animate(
+    {
+        position: { x: 100, y: 100 }, 
+        style: { lineColor: 'pink' }
+    },
+    {
+        duration: 1,
+        queue: true
+    }
+
+  
+);
+
+
+});
+
+
+</script> 
+
+
+
+
+<script>
+function figure1() 
+{
+  var presetArr = [];
+  var zeroArr = []; //makes it easier to modulate by a halfstep with mod division
+
+  var x = document.getElementById("menu1");
+  for (var i = 1; i < x.length; i++) 
+  {
+    console.log(x.options[i].value);
+    zeroArr.push(x.options[i].value);
+  }
+
+  presetArr.push(zeroArr[5]);
+  presetArr.push(zeroArr[0]);
+  presetArr.push(zeroArr[1]);
+  presetArr.push(zeroArr[4]);
+  presetArr.push(zeroArr[3]);
+  presetArr.push(zeroArr[11]);
+  presetArr.push(zeroArr[6]);
+  presetArr.push(zeroArr[2]);
+  presetArr.push(zeroArr[8]);
+  presetArr.push(zeroArr[7]);
+  presetArr.push(zeroArr[9]);
+  presetArr.push(zeroArr[10]);
+
+
+
+  for (var v = 0; v < presetArr.length; v++)
+  {
+    elementArray[v].style({label: presetArr[v]});
+
+    var labelSearch = elementArray[v].style('label');
+    var index = zeroArr.indexOf(labelSearch) + 1;
+
+    elementArray[v].data({name: index});
+    
+
+
+    var currentId = elementArray[v].data('id');
+
+    mapOfNotes.set(labelSearch, currentId);
+  }
+
+  for (var q = 0; q < 12; q++)
+  {
+    console.log (mapOfNotes.get(elementArray[q].style('label')) );
+
+  }
+
+//var bt =  "\"C\"";
+/*var bt = 'C';
+console.log(bt);
+console.log( cy.getElementById(bt) ) ;*/
+
+
+
+}
+
+function demo() 
+{
+  var presetArr = [];
+  var zeroArr = []; //makes it easier to modulate by a halfstep with mod division
+  
+  var x = document.getElementById("menu1");
+  for (var i = 1; i < x.length; i++) 
+  {
+    console.log(x.options[i].value);
+    zeroArr.push(x.options[i].value);
+  }
+
+  presetArr.push(zeroArr[4]);
+  presetArr.push(zeroArr[0]);
+  presetArr.push(zeroArr[1]);
+  presetArr.push(zeroArr[5]);
+  presetArr.push(zeroArr[3]);
+  presetArr.push(zeroArr[11]);
+  presetArr.push(zeroArr[6]);
+  presetArr.push(zeroArr[2]);
+  presetArr.push(zeroArr[8]);
+  presetArr.push(zeroArr[7]);
+  presetArr.push(zeroArr[9]);
+  presetArr.push(zeroArr[10]);
+
+  var startTime = 0;
+  var duration = 0.1363635;
+  var currentIndex = 0; 
+
+  for (var l = 0; l < 16; l++)
+  {
+    finalNotes[l] = new midiNote("C#3", startTime, duration);
+    startTime += duration;
+    currentIndex++;
+  }
+
+  var noteAr = ["F3", "C4", "G3", "G#3", "D#4", "A#3", "C#4", "C4"];
+  //currentIndex++;
+  for (var g = 0; g < noteAr.length; g++)
+  {
+
+      for (var x = 0; x < 2; x++)
+      {
+        finalNotes[currentIndex] = new midiNote(noteAr[g], startTime, duration);
+        startTime += duration;
+        currentIndex++;
+      }
+
+      /*finalNotes[currentIndex] = new midiNote(noteAr[g], startTime, duration);
+      startTime += duration;
+      currentIndex++;
+      finalNotes[currentIndex] = new midiNote(noteAr[g], startTime, duration);
+      startTime += duration;
+      currentIndex++;*/
+  }
+
+  //currentIndex++;
+  for (var g = 0; g < noteAr.length; g++)
+  {
+      /*for (var x = 0; x < 2; x++)
+      {
+        finalNotes[currentIndex + x] = new midiNote(noteAr[g], startTime, duration); 
+        console.log( (currentIndex + x) + " " + noteAr[g]);
+        startTime += duration;
+        currentIndex++;
+      }*/
+      for (var x = 0; x < 2; x++)
+      {
+        finalNotes[currentIndex] = new midiNote(noteAr[g], startTime, duration);
+        startTime += duration;
+        currentIndex++;
+      }
+      /*finalNotes[currentIndex] = new midiNote(noteAr[g], startTime, duration);
+      startTime += duration;
+      currentIndex++;*/
+
+  }
+
+
+  for (var v = 0; v < presetArr.length; v++)
+  {
+    elementArray[v].style({label: presetArr[v]});
+
+    var labelSearch = elementArray[v].style('label');
+    var index = zeroArr.indexOf(labelSearch) + 1;
+
+    elementArray[v].data({name: index});
+    
+
+
+    var currentId = elementArray[v].data('id');
+
+    mapOfNotes.set(labelSearch, currentId);
+  }
+
+  for (var q = 0; q < 12; q++)
+  {
+    console.log (mapOfNotes.get(elementArray[q].style('label')) );
+
+  }
+
+  for (var q = 0; q < finalNotes.length; q++)
+  {
+    console.log("CURRENT INDEX " + q + finalNotes[q]);
+
+  }
+
+  finalNotes = parseNotes(finalNotes);
+  animate(finalNotes, 0, 0);
+
+  document.querySelector("#FileDrop #Text").textContent = "The Metro - Berlin";
+}
+
+</script>
+
+
+<script>
+function check() 
+{
+  console.log("---------------------------------------");
+  console.log("UNIVERSAL CHECKLINE");
+  console.log("---------------------------------------");
+
+  for (var i = 0; i < elementArray.length; i++)
+  {
+
+      console.log(elementArray[i].data('name'));
+      currentNode = elementArray[i].data('name');
+      tritoneBase = currentNode;
+
+      tritonePlus1 = (tritoneBase + 1)%12;
+      tritonePlus2 = (tritoneBase + 2)%12;
+
+      tritoneMinus1 = (tritoneBase - 1);
+      tritoneMinus2 = (tritoneBase - 2);
+
+    if (tritoneMinus1 == 0)
+      {tritoneMinus1 = 12;}
+
+    if (tritoneMinus2 == 0)
+      {tritoneMinus2 = 12;}
+
+    if (tritoneMinus1 == -1)
+      {tritoneMinus1 = 11;}
+
+    if (tritoneMinus2 == -1)
+      {tritoneMinus2 = 11;}
+
+    if (tritoneMinus2 == -2)
+      {tritoneMinus2 = 10;}
+
+    var nodesToCheck = [];
+
+    var outGoing = elementArray[i].outgoers();
+    for (var q = 0; q < outGoing.length; q++)
+      {
+        console.log(outGoing[q].data('name') + " outgoing");
+        nodesToCheck.push(outGoing[q]);
+
+      }
+
+    var inComing = elementArray[i].incomers();
+    for (var x = 0; x < inComing.length; x++)
+      {
+        console.log(inComing[x].data('name') + " incoming");
+        nodesToCheck.push(inComing[x]);
+      }
+
+    for (var j = 0; j < nodesToCheck.length; j++)
+    {
+
+      console.log(nodesToCheck[j].data('name'));
+      var firstValAdjList = nodesToCheck[j].data('name');
+      
+      //console.log(indexCorrespondingToChosenValue[indexNumber] + " iteration: " + i);
+
+
+      for (var k = 3; k > j; k--)
+      {
+
+        var lastValAdjList = nodesToCheck[k].data('name');
+
+        console.log(firstValAdjList + " " + lastValAdjList + " first and last values")
+
+        var tritoneBoolplus1 = (firstValAdjList == tritonePlus1||lastValAdjList == tritonePlus1);
+        var tritoneBoolplus2 = (firstValAdjList == tritonePlus2||lastValAdjList == tritonePlus2);
+        var tritoneBoolmin1 = (firstValAdjList == tritoneMinus1||lastValAdjList == tritoneMinus1);
+        var tritoneBoolmin2 = (firstValAdjList == tritoneMinus2||lastValAdjList == tritoneMinus2);
+
+        console.log(tritoneBoolplus1 + " " + tritoneBoolplus2 + " " +  tritoneBoolmin1 + " " + tritoneBoolmin2);
+
+        if (tritoneBoolplus1 && tritoneBoolplus2)
+          {window.alert("Tritone cluster detected at node: " + currentNode + firstValAdjList + " " + lastValAdjList);}
+        if (tritoneBoolplus1 && tritoneBoolmin1)
+          {window.alert("Tritone cluster detected at node: " + currentNode + firstValAdjList + " " + lastValAdjList);}
+        if (tritoneBoolmin1 && tritoneBoolmin2)
+          {window.alert("Tritone cluster detected at node: " + currentNode + firstValAdjList + " " + lastValAdjList);}
+
+      }
+      
+    }
+
+  }
+
+
+
+}
+</script>
+
+  
+
+</style>
+
+
+
+</body>
+
+
+
+</html>
+

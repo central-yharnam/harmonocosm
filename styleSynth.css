@@ -1,0 +1,48 @@
+
+
+.settingsBar {
+  padding-top: 8px;
+  font: 14px "Open Sans", "Lucida Grande", "Arial", sans-serif;
+  position: absolute;
+  vertical-align: middle;
+  width: 30%;
+  height: 30px;
+  right: 0;
+  bottom: 200px;
+}
+
+.btn-group{
+
+  right:0;
+  
+  position: absolute;
+  bottom: 400px;
+}
+
+.left {
+  width: 50%;
+  position: absolute;
+  left: 0;
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.left span, .left input {
+  vertical-align: middle;
+}
+
+.right {
+  width: 50%;
+  position: absolute;
+  right: 0;
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.right span {
+  vertical-align: middle;
+}
+
+.right input {
+  vertical-align: baseline;
+}
